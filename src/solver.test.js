@@ -1,5 +1,6 @@
 import {
   stringToGrid,
+  isValidMove,
   solver
 } from './solver'
 
@@ -111,10 +112,20 @@ describe('helpers', () => {
       ])
     })
   })
-})
 
-describe('Sudoku solver algorithm', () => {
-  test('Solves sudoku with a valid answer', () => {
-    expect(solver(stringToGrid(hardSudoku))).toEqual([])
+  describe('isValidMove', () => {
+    it('should return false if there is a conflict', () => {
+      expect(isValidMove(0, 0, stringToGrid(hardSudoku), 2)).toBeFalsy()
+    })
+
+    it('should return true if the move is valid', () => {
+      expect(isValidMove(0, 0, stringToGrid(hardSudoku), 1)).toBeTruthy()
+    })
   })
 })
+
+// describe('Sudoku solver algorithm', () => {
+//   test('Solves sudoku with a valid answer', () => {
+//     expect(solver(stringToGrid(hardSudoku))).toEqual([])
+//   })
+// })
