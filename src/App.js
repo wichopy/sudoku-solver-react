@@ -178,12 +178,12 @@ function App() {
         
         <div className="item">
           <button data-qa="solve-button" className="solve" onClick={handleSolveClick}>Solve</button>
+          <p style={{
+            visibility: solving ? 'visible' : 'hidden'
+          }}>
+            Solving.......
+          </p>
         </div>
-        <p style={{
-          visibility: solving ? 'visible' : 'hidden'
-        }}>
-          Solving.......
-        </p>
         <div className="item">
           <h3>Result</h3>
           <div className="sudoku">
