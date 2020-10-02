@@ -177,7 +177,7 @@ function App() {
         </div>
         
         <div className="item">
-          <button data-qa="solve-button" className="solve" onClick={handleSolveClick}>Solve</button>
+          <button disabled={solving} data-qa="solve-button" className="solve" onClick={handleSolveClick}>Solve</button>
           <p style={{
             visibility: solving ? 'visible' : 'hidden'
           }}>
