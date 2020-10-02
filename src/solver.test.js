@@ -4,12 +4,13 @@ import {
   solver
 } from './solver'
 
-const hardSudoku = '..7..8.....6.2.3...3......9.1..5..6.....1.....7.9....2........4.83..4...26....51.'
+const easy = '8.9..7..61..6..87.37658.1......7..52...9.5...26..4......7.91268.24..3..79..7..5.3'
+const hard = '..7..8.....6.2.3...3......9.1..5..6.....1.....7.9....2........4.83..4...26....51.'
 
 describe('helpers', () => {
   describe('stringToGrid', () => {
     it('should convert a sudoku string to a grid', () => {
-      expect(stringToGrid(hardSudoku)).toEqual([
+      expect(stringToGrid(hard)).toEqual([
         [".",".","7",".",".","8",".",".",".",],
         [".",".","6",".","2",".","3",".",".",],
         [".","3",".",".",".",".",".",".","9",],
@@ -24,9 +25,10 @@ describe('helpers', () => {
   })
 })
 
+// http://norvig.com/top95.txt
 describe('Sudoku solver algorithm', () => {
   test('Solves sudoku with a valid answer', () => {
-    expect(solver(hardSudoku)).toEqual([
+    expect(solver(hard)[0]).toEqual([
       ['9', '5', '7','6', '3', '8','4', '2', '1'],
       ['1', '4', '6','7', '2', '9','3', '8', '5'],
       ['8', '3', '2','5', '4', '1','6', '7', '9'],

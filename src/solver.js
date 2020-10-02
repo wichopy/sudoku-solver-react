@@ -125,16 +125,16 @@ export function stringToGrid(sudokuString) {
   return result
 }
 
-function gridToStr(grid) {
-  let result = ''
-  for(let row = 0; row<9; row++) {
-    for (let col = 0; col < 9; col++) {
-      result += grid[row][col]
-    }
-  }
+// function gridToStr(grid) {
+//   let result = ''
+//   for(let row = 0; row<9; row++) {
+//     for (let col = 0; col < 9; col++) {
+//       result += grid[row][col]
+//     }
+//   }
 
-  return result
-}
+//   return result
+// }
 
 function clampToSquare(val) {
   if (val < 3) {
