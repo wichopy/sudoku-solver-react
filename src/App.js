@@ -2,6 +2,8 @@ import React from 'react';
 import './App.css';
 import { stringToGrid } from './solver'
 
+const sudokuRegex = /^[1-9.]*$/
+
 const defaultState = {
   sudokuStr: '..7..8.....6.2.3...3......9.1..5..6.....1.....7.9....2........4.83..4...26....51.',
   solvedGrid: Array(9).fill(Array(9).fill('.')),
@@ -29,7 +31,8 @@ const reducer = (state, action) => {
     case PUZZLE_INPUT_ERROR:
       return {
         ...defaultState,
-        inputError: 'Sudoku puzzle must be 81 characters long with only numbers or `.`s to represent empty cells. Only pasting of a valid sudoku string is support at the moment.'
+        sudokuStr: state.sudokuStr,
+        inputError: action.payload,
       }
     case START_SOLVING:
       return {
@@ -123,16 +126,27 @@ function App() {
   }, [])
 
   function handleInputChange(ev) {
+    if (!sudokuRegex.test(ev.target.value)) {
+      dispatch({ type: PUZZLE_INPUT_ERROR, payload: 'Chacters must be 1-9 or .' })
+      return
+    }
+
     if (ev.target.value.length !== 81) {
-      dispatch({ type: PUZZLE_INPUT_ERROR })
+      dispatch({ type: PUZZLE_INPUT_ERROR, payload: 'Sudoku puzzle must be 81 characters long with only numbers or `.`s to represent empty cells. Only pasting of a valid sudoku string is support at the moment.'})
       return
     }
 
     dispatch({ type: NEW_SUDOKU, payload: ev.target.value })
   }
 
-  function selectAll(ev) {
+  function selectAllAndPasteIfValid(ev) {
     ev.target.select()
+
+    navigator.clipboard.readText().then(clipText => {
+      if (sudokuRegex.test(clipText) ) {
+        dispatch({ type: NEW_SUDOKU, payload: clipText })
+      }
+    })
   }
 
   function handleSolveClick() {
@@ -148,13 +162,13 @@ function App() {
     <div className="App">
       <h1>Sudoku Solver</h1>
       <p>
-        Puzzle Definition:
+        Copy a sudoku puzzle and click below:
       </p>
       <textarea
         data-qa="puzzle-definition"
         className="puzzle-definition"
         disabled={solving}
-        onClick={selectAll}
+        onClick={selectAllAndPasteIfValid}
         onChange={handleInputChange}
         value={sudokuStr}
         rows="4"
