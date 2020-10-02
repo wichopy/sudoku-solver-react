@@ -1,6 +1,6 @@
 import React from 'react';
 import './App.css';
-import { solver, stringToGrid } from './solver'
+import { stringToGrid } from './solver'
 
 const defaultState = {
   sudokuStr: '..7..8.....6.2.3...3......9.1..5..6.....1.....7.9....2........4.83..4...26....51.',
@@ -29,7 +29,7 @@ const reducer = (state, action) => {
     case PUZZLE_INPUT_ERROR:
       return {
         ...defaultState,
-        inputError: 'Sudoku puzzle must be 81 characters long with only numbers or `.`s to represent empty cells'
+        inputError: 'Sudoku puzzle must be 81 characters long with only numbers or `.`s to represent empty cells. Only pasting of a valid sudoku string is support at the moment.'
       }
     case START_SOLVING:
       return {
@@ -101,6 +101,25 @@ function App() {
     inputError,
     stats,
   } = state;
+  // Worker needs to be in a ref so its not lost on rerenders.
+  const workerRef = React.useRef()
+
+  React.useEffect(() => {
+    workerRef.current = new Worker('./solver-worker.js')
+
+    // Dispatch action when worker is done its job.
+    workerRef.current.onmessage = e => {
+      const [solution, stats] = e.data
+      dispatch({
+        type: FINISH_SOLVING,
+        payload: {
+          solution,
+          stats,
+          end: new Date().getTime(),
+        }
+      }) 
+    }
+  }, [])
 
   function handleInputChange(ev) {
     if (ev.target.value.length !== 81) {
@@ -120,15 +139,8 @@ function App() {
       type: START_SOLVING,
       payload: { start: new Date().getTime()}
     })
-    const [solution, stats] = solver(sudokuStr)
-    dispatch({
-      type: FINISH_SOLVING,
-      payload: {
-        solution,
-        stats,
-        end: new Date().getTime(),
-      }
-    })
+    // Outsource computation to background thread.
+    workerRef.current.postMessage(sudokuStr)
   }
 
   return (        
@@ -146,12 +158,12 @@ function App() {
         value={sudokuStr}
         rows="4"
       />
-      <div>
-        <a href="http://magictour.free.fr/top95" target="blank">Find more sudokus here</a>
-      </div>
       <p className="error-text" data-qa="input-error">
         {inputError}
       </p>
+      <div>
+        <a href="http://magictour.free.fr/top95" target="blank">Find more sudokus here</a>
+      </div>
       <div className="solver-area">
         <div className="item">
           <h3>Input</h3>
@@ -167,7 +179,11 @@ function App() {
         <div className="item">
           <button data-qa="solve-button" className="solve" onClick={handleSolveClick}>Solve</button>
         </div>
-
+        <p style={{
+          visibility: solving ? 'visible' : 'hidden'
+        }}>
+          Solving.......
+        </p>
         <div className="item">
           <h3>Result</h3>
           <div className="sudoku">
