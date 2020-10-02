@@ -7,10 +7,15 @@ const comparator = (a,b) => a[2].length - b[2].length
 
 export function solver(sudokuStr) {
   const grid = stringToGrid(sudokuStr)
+  // Meta data
+  let callstackCount = 1
+  let treesCreated = 1
+  // const actions = []
 
   // Use backtracking DFS algorithm to solve the sudoku puzzle
   function backtrack(grid) {
     let emptyCellHeap = []
+    callstackCount += 1
 
     // 1. Find all possible answers for each cell
     // console.log('Find all possible answers')
@@ -36,8 +41,9 @@ export function solver(sudokuStr) {
       const [row, col, answers] = prioritizedAnswer
       for (let i = 0; i < answers.length; i++) {
         const answer = answers[i]
-
+        // actions.push(`+${row} ${col} ${answer}`)
         grid[row][col] = answer
+        treesCreated += 1
         if (backtrack(grid)) {
           // 7. The solution is found, clear all functions in the call stack
           // console.log('Found solution, clear functions in callstack')
@@ -46,11 +52,13 @@ export function solver(sudokuStr) {
           // 4. Subtree failed, set to empty and try the next answer
           // console.log('Solution didnt work, try next answer')
           grid[row][col] = '.'
+          // actions.push(`-${row} ${col} ${answer}`)
         }
       }
 
       // 5. [Backtracking stop condition] no answers work for this solution set, go back up to parent decision
       // console.log('None of the answer subtree worked, backtrack')
+      callstackCount -= 1
       return false
     }
 
@@ -60,7 +68,12 @@ export function solver(sudokuStr) {
   }
 
   backtrack(grid)
-  return grid
+
+  return [grid, {
+    // actions,
+    treesCreated,
+    callstackCount,
+  }]
 }
 
 function possibleAnswers(row, col, grid) {

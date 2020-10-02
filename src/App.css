@@ -1,5 +1,6 @@
 .App {
   text-align: center;
+  padding: 32px;
 }
 
 .App-logo {
@@ -35,4 +36,45 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+.error-text {
+  color: red;
+}
+
+.solver-area {
+  display: flex;
+  margin: auto;
+  width: fit-content;
+  align-items: center;
+}
+
+.solver-area .item {
+  padding: 16px;
+}
+
+.sudoku {
+  border: 4px solid black;
+}
+
+button.solve {
+  background-color: aliceblue;
+  border: 1px solid black;
+  font-size: 4rem;
+  border-radius: 4px;
+  padding: 16px;
+}
+
+@media (max-width: 100rem) {
+  .solver-area {
+    display: flex;
+    flex-direction: column;
+    margin: auto;
+    width: fit-content;
+    align-items: center;
+  }
+}
+
+.puzzle-definition {
+  font-size: 1.5rem;
 }
