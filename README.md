@@ -1,8 +1,22 @@
 ## Sudoku Solver
 
+### Algorithm
+A javascript based sudoku solver using backtracking to DFS all possible answers, and revert backwards when no possible values can be entered to try a different answer set.
+
+To improve the efficiency of the algorithm, a min heap is used to prioritize cells with the fewest possible answers.
+
+This is largely based off of this [essay](http://norvig.com/sudoku.html)
+
+### UI
+The react app simply renders the answer and provides a text input for entering your own sudoku puzzles.
+
+To improve on rendering performance, the sudoku solving algorithm is run in a background thread using web workers.
+
 TODO:
 - Use a web pack plugin to allow code sharing between worker and main react app
 - Test UI
+- Allow a user to scan a sudoku using phone camera instead of having to paste in the text box.
+- For fun, add animation of the solution instead of loading and waiting for the answer to come.
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 

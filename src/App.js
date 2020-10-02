@@ -101,6 +101,7 @@ function App() {
     inputError,
     stats,
   } = state;
+
   // Worker needs to be in a ref so its not lost on rerenders.
   const workerRef = React.useRef()
 
@@ -164,6 +165,7 @@ function App() {
       <div>
         <a href="http://magictour.free.fr/top95" target="blank">Find more sudokus here</a>
       </div>
+
       <div className="solver-area">
         <div className="item">
           <h3>Input</h3>
@@ -184,6 +186,7 @@ function App() {
             Solving.......
           </p>
         </div>
+
         <div className="item">
           <h3>Result</h3>
           <div className="sudoku">
