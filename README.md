@@ -14,6 +14,7 @@ To improve on rendering performance, the sudoku solving algorithm is run in a ba
 
 TODO:
 - Use a web pack plugin to allow code sharing between worker and main react app
+- Improve algorithm to reuse previously processed possibleAnswers data.
 - Test UI
 - Allow a user to scan a sudoku using phone camera instead of having to paste in the text box.
 - For fun, add animation of the solution instead of loading and waiting for the answer to come.
