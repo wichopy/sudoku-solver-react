@@ -1,9 +1,11 @@
 // Use Heap methods for prioritizing answers to cells.
-const { Heap } = require('heap-js')
+const {
+  Heap
+} = require('heap-js')
 
 // Store possible answers for a cell as a tuple [row, col, answers]
 // Use the length of the tuple as the score for min heap
-const comparator = (a,b) => a[2].length - b[2].length
+const comparator = (a, b) => a[2].length - b[2].length
 
 export function solver(sudokuStr) {
   const grid = stringToGrid(sudokuStr)
@@ -20,7 +22,7 @@ export function solver(sudokuStr) {
     // 1. Find all possible answers for each cell
     // console.log('Find all possible answers')
     for (let row = 0; row < 9; row++) {
-      for(let col = 0; col < 9; col++) {
+      for (let col = 0; col < 9; col++) {
         if (grid[row][col] === '.') {
           const cellPossibleAnswers = possibleAnswers(row, col, grid)
           if (cellPossibleAnswers.length === 0) {
@@ -92,8 +94,8 @@ function possibleAnswers(row, col, grid) {
   let squareRow = clampToSquare(row)
   for (let i = 0; i < 3; i++) {
     for (let j = 0; j < 3; j++) {
-      if (grid[squareRow+i][squareCol + j] !== '.') {
-        result.delete(grid[squareRow+i][squareCol + j])
+      if (grid[squareRow + i][squareCol + j] !== '.') {
+        result.delete(grid[squareRow + i][squareCol + j])
       }
     }
   }
@@ -144,4 +146,140 @@ function clampToSquare(val) {
   }
 
   return 6
+}
+
+// NORVIGS ALGO:
+const digits = "123456789";
+const rows = "ABCDEFGHI";
+
+function cross(A, B) {
+  // console.log(A, B);
+  const result = [];
+
+  for (let i = 0; i < A.length; i++) {
+    for (let j = 0; j < B.length; j++) {
+      result.push(A.charAt(i) + B.charAt(j));
+    }
+  }
+  return result;
+}
+
+const squares = cross(rows, digits);
+
+const unitlist = [].concat(
+  digits.split("").map((c) => cross(rows, c)),
+  rows.split("").map((r) => cross(r, digits)),
+  (() => {
+    const result = [];
+    const rowSquares = ["ABC", "DEF", "GHI"];
+    const colSquares = ["123", "456", "789"];
+    for (let i = 0; i < 3; i++) {
+      for (let j = 0; j < 3; j++) {
+        result.push(cross(rowSquares[i], colSquares[j]));
+      }
+    }
+
+    return result;
+  })()
+);
+
+/**
+ * @type {Object <string, Array<string>>}
+ */
+export const units = squares.reduce((result, current) => {
+  if (!result[current]) {
+    result[current] = []
+  }
+  for (let unit of unitlist) {
+    if (unit.includes(current)) {
+      result[current].push(unit)
+    }
+  }
+
+  return result
+}, {});
+
+/**
+ * @type {Object <string, Set<string>>}}
+ */
+export const peers = squares.reduce((result, current) => {
+  result[current] = new Set()
+  units[current].forEach(u => u.forEach(s => result[current].add(s)))
+  result[current].delete(current)
+  return result
+}, {});
+
+export const parseGrid = (grid) => {
+  const values = squares.reduce((result, s) =>{
+    result[s] = digits
+    return result
+  }, {})
+
+  for (let entry of Object.entries(gridValues(grid))) {
+    const [square, digit] = entry
+    if (digits.includes(digit) && !assign(values, square, digit)) {
+      return false;
+    }
+  }
+
+  return values
+}
+
+export const gridValues = (grid) => {
+  const result = {}
+  for (let i = 0; i < 81; i++) {
+    result[squares[i]] = grid.charAt(i)
+  }
+
+  return result;
+}
+
+/**
+ *
+ * @param {Object <string, string>} values
+ * @param {string} square
+ * @param {string} digit
+ */
+function assign(values, square, digit) {
+  const otherValues = values[square].replace(digit, '')
+
+  const propogation = otherValues.split('').map(d2 => eliminate(values, square, d2))
+  return propogation.every(iteration => !!iteration)
+}
+
+/**
+ *
+ * @param {Object <string, string>} values
+ * @param {string} square
+ * @param {string} digit
+ */
+function eliminate(values, square, digit) {
+  if (!values[square].includes(digit)) {
+    return values
+  }
+
+  values[square] = values[square].replace(digit, '')
+  if (values[square].length === 0) {
+    return false
+  } else if(values[square].length === 1)  {
+    const digitToPropogate = values[square]
+    const propogation = Array.from(peers[square]).map(s => eliminate(values, s, digitToPropogate))
+    if (!propogation.every(iteration => !!iteration)) {
+      return false
+    }
+  }
+
+  for (let u of units[square]) {
+    const dplaces = u.filter(s => values[s].includes(digit))
+
+    if (dplaces.length === 0) {
+      return false
+    } else if (dplaces.length === 1) {
+      if (!assign(values, dplaces[0], digit)) {
+        return false
+      }
+    }
+  }
+
+  return values
 }
