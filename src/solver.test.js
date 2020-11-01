@@ -6,11 +6,15 @@ import {
   units,
   peers,
   parseGrid,
+  findMinSquare,
+  valuesToStr,
+  norvigSolve
 } from './solver'
 
 const easy = '8.9..7..61..6..87.37658.1......7..52...9.5...26..4......7.91268.24..3..79..7..5.3'
 const hard = '..7..8.....6.2.3...3......9.1..5..6.....1.....7.9....2........4.83..4...26....51.'
 
+const hardSolution = '957638421146729385832541679419352768628417953375986142791265834583174296264893517'
 describe('helpers', () => {
   describe('stringToGrid', () => {
     it('should convert a sudoku string to a grid', () => {
@@ -265,5 +269,13 @@ describe('norvig', () => {
       "I8": "1",
       "I9": "378",
     })
+  })
+
+  test('find min square', () => {
+    expect(findMinSquare(parseGrid(hard))).toEqual([2, 'F3'])
+  })
+
+  test('solve', () => {
+    expect(valuesToStr(norvigSolve(hard))).toEqual(hardSolution)
   })
 })

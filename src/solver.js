@@ -153,7 +153,6 @@ const digits = "123456789";
 const rows = "ABCDEFGHI";
 
 function cross(A, B) {
-  // console.log(A, B);
   const result = [];
 
   for (let i = 0; i < A.length; i++) {
@@ -209,6 +208,11 @@ export const peers = squares.reduce((result, current) => {
   return result
 }, {});
 
+/**
+ *
+ * @param {string} grid
+ * @returns {Object <string, string>}
+ */
 export const parseGrid = (grid) => {
   const values = squares.reduce((result, s) =>{
     result[s] = digits
@@ -244,7 +248,11 @@ function assign(values, square, digit) {
   const otherValues = values[square].replace(digit, '')
 
   const propogation = otherValues.split('').map(d2 => eliminate(values, square, d2))
-  return propogation.every(iteration => !!iteration)
+  if (propogation.every(iteration => !!iteration)) {
+    return values
+  }
+
+  return false
 }
 
 /**
@@ -282,4 +290,53 @@ function eliminate(values, square, digit) {
   }
 
   return values
+}
+
+export function findMinSquare(values) {
+  return Object.entries(values).reduce((answer, entry) => {
+    const [square, digits] = entry
+    if (digits.length < answer[0] && digits.length > 1) {
+      answer = [digits.length, square]
+    }
+
+    return answer
+  }, [Infinity, null])
+}
+
+export function valuesToStr(values){
+  const result = Array(81)
+  Object.entries(values).forEach(entry => {
+    result[squares.indexOf(entry[0])] = entry[1]
+  })
+  return result.join('')
+}
+
+
+/**
+ *
+ * @param {Object <string,string>} values
+ */
+function search(values) {
+  if (!values) {
+    return false
+  }
+
+  if (Object.values(values).every(value => value.length === 1)) {
+    return values
+  }
+
+  const [_, nextTry] = findMinSquare(values)
+
+
+  return values[nextTry].split('').reduce((answer, d) => {
+    if (answer) return answer
+    const solution = search(assign({...values}, nextTry, d))
+    if (solution) {
+      return solution
+    }
+  }, false)
+}
+
+export function norvigSolve(grid) {
+  return search(parseGrid(grid))
 }
