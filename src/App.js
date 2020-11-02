@@ -1,19 +1,22 @@
 import React from 'react';
 import './App.css';
-import { stringToGrid } from './solver'
+import { stringToGrid, norvigSolve } from './solver'
+import Graph from 'vis-react';
 
 const sudokuRegex = /^[1-9.]*$/
 
 const defaultState = {
   sudokuStr: '..7..8.....6.2.3...3......9.1..5..6.....1.....7.9....2........4.83..4...26....51.',
   solvedGrid: Array(9).fill(Array(9).fill('.')),
-  benchmark: {
+benchmark: {
     start: null, end: null,
   },
   solving: false,
   solved: false,
   inputError: '',
   stats: {},
+  edges: [],
+  nodes: [],
 }
 
 const NEW_SUDOKU = 'NEW_SUDOKU'
@@ -55,6 +58,8 @@ const reducer = (state, action) => {
         solving: false,
         solved: true,
         stats: action.payload.stats,
+        edges: action.payload.edges,
+        nodes: action.payload.nodes,
       }
     default:
       return state;
@@ -103,6 +108,7 @@ function App() {
     solved,
     inputError,
     stats,
+    nodes, edges
   } = state;
 
   // Worker needs to be in a ref so its not lost on rerenders.
@@ -114,14 +120,15 @@ function App() {
     // Dispatch action when worker is done its job.
     workerRef.current.onmessage = e => {
       const [solution, stats] = e.data
+
       dispatch({
         type: FINISH_SOLVING,
         payload: {
-          solution,
+          solution: stringToGrid(solution),
           stats,
           end: new Date().getTime(),
         }
-      }) 
+      })
     }
   }, [])
 
@@ -155,10 +162,39 @@ function App() {
       payload: { start: new Date().getTime()}
     })
     // Outsource computation to background thread.
-    workerRef.current.postMessage(sudokuStr)
+    const [solution, stats] = norvigSolve(sudokuStr)
+
+    const end = Date.now()
+    const stack = [stats.tree]
+    const edges = []
+    const nodes = []
+    while(stack.length) {
+      const current = stack.pop()
+      nodes.push({ id: current.val, label: current.val })
+      edges.push({ from: current.parent ? current.parent.val : null, to: current.val })
+      if (current.children.length) {
+        stack.push(...current.children)
+      }
+    }
+
+    setTimeout(() => {
+      dispatch({
+        type: FINISH_SOLVING,
+        payload: {
+          solution: stringToGrid(solution),
+          stats,
+          end,
+          edges,
+          nodes,
+        }
+      })
+    }, 1000)
+
+
+    // workerRef.current.postMessage(sudokuStr)
   }
 
-  return (        
+  return (
     <div className="App">
       <h1>Sudoku Solver</h1>
       <p>
@@ -188,10 +224,10 @@ function App() {
               {row.map(
                 (col, j) => <GridCell key={i+":"+j} row={i} col={j} value={col} />
               )}
-            </div>)}      
+            </div>)}
           </div>
         </div>
-        
+
         <div className="item">
           <button disabled={solving} data-qa="solve-button" className="solve" onClick={handleSolveClick}>Solve</button>
           <p style={{
@@ -215,12 +251,28 @@ function App() {
       </div>
 
       {
-        solved && <Statistics
+        solved && [<Statistics
           start={benchmark.start}
           end={benchmark.end}
           callStackCount={stats.callstackCount}
           treesCreated={stats.treesCreated}
+        />,
+        <Graph
+          styles={{
+            wdith: 1600,
+            height: 1000,
+          }}
+          graph={{
+            nodes,
+            edges,
+          }}
+          options={{
+            layout: {
+              hierarchical:true,
+            }
+          }}
         />
+        ]
       }
     </div>
   );

@@ -276,6 +276,7 @@ describe('norvig', () => {
   })
 
   test('solve', () => {
-    expect(valuesToStr(norvigSolve(hard))).toEqual(hardSolution)
+    const [solution, stats] = norvigSolve(hard)
+    expect(solution).toEqual(hardSolution)
   })
 })

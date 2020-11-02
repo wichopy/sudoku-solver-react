@@ -148,6 +148,29 @@ function clampToSquare(val) {
   return 6
 }
 
+// VISUALIZING STATES
+const squareStates = {
+  'given': 'given',
+  'unknown': 'unknown',
+  'branchedOffRoot': 'branchedOffRoot',
+  exploring: 'exploring',
+  potentialAnswer: 'potentialAnswer',
+}
+
+let doneParsing = false
+
+class Node {
+  constructor(val, parent) {
+    this.children = []
+    this.val = val
+    this.parent = parent
+  }
+}
+
+let tree = new Node('root', null)
+let root = tree
+let pointer = root
+
 // NORVIGS ALGO:
 const digits = "123456789";
 const rows = "ABCDEFGHI";
@@ -164,6 +187,16 @@ function cross(A, B) {
 }
 
 const squares = cross(rows, digits);
+
+const gridMetaData = squares.reduce((result, s) => {
+  result[s] = {
+    timesVisited: 0,
+    partOfSolution: [],
+    solutionState: squareStates.unknown,
+    parentSolution: null,
+  }
+  return result
+}, {})
 
 const unitlist = [].concat(
   digits.split("").map((c) => cross(rows, c)),
@@ -208,12 +241,26 @@ export const peers = squares.reduce((result, current) => {
   return result
 }, {});
 
+export const gridValues = (grid) => {
+  const result = {}
+  for (let i = 0; i < 81; i++) {
+    result[squares[i]] = grid.charAt(i)
+  }
+
+  return result;
+}
+
 /**
  *
  * @param {string} grid
  * @returns {Object <string, string>}
  */
 export const parseGrid = (grid) => {
+  doneParsing = false
+  tree = new Node('root', null)
+  root = tree
+  pointer = root
+
   const values = squares.reduce((result, s) =>{
     result[s] = digits
     return result
@@ -226,16 +273,19 @@ export const parseGrid = (grid) => {
     }
   }
 
-  return values
-}
-
-export const gridValues = (grid) => {
-  const result = {}
-  for (let i = 0; i < 81; i++) {
-    result[squares[i]] = grid.charAt(i)
+  //Apply meta data
+  for (let entry of Object.entries(values)) {
+    const [s, d] = entry
+    if (d.length === 1) {
+      gridMetaData[s].solutionState = squareStates.given;
+    } else {
+      gridMetaData[s].solutionState = squareStates.unknown;
+    }
   }
 
-  return result;
+  doneParsing = true
+
+  return values
 }
 
 /**
@@ -245,9 +295,16 @@ export const gridValues = (grid) => {
  * @param {string} digit
  */
 function assign(values, square, digit) {
+  callstackCount += 1
   const otherValues = values[square].replace(digit, '')
 
-  const propogation = otherValues.split('').map(d2 => eliminate(values, square, d2))
+  const propogation = otherValues.split('').map(d2 => {
+    currentEliminationCount = 0
+    const result = eliminate(values, square, d2)
+    maxEliminationChainLength = Math.max(maxEliminationChainLength, currentEliminationCount)
+    return result
+  })
+
   if (propogation.every(iteration => !!iteration)) {
     return values
   }
@@ -262,6 +319,8 @@ function assign(values, square, digit) {
  * @param {string} digit
  */
 function eliminate(values, square, digit) {
+  callstackCount += 1
+  currentEliminationCount += 1
   if (!values[square].includes(digit)) {
     return values
   }
@@ -283,7 +342,21 @@ function eliminate(values, square, digit) {
     if (dplaces.length === 0) {
       return false
     } else if (dplaces.length === 1) {
-      if (!assign(values, dplaces[0], digit)) {
+      if (doneParsing) {
+        callstackCount += 1
+        gridMetaData[dplaces[0]].solutionState = squareStates.potentialAnswer;
+        gridMetaData[dplaces[0]].timesVisited += 1
+        gridMetaData[dplaces[0]].partOfSolution.push(treesCreated - 1)
+        gridMetaData[dplaces[0]].parentSolution = treesCreated - 1
+      }
+      const attemped = assign(values, dplaces[0], digit)
+      if (!attemped) {
+        if (doneParsing) {
+          gridMetaData[dplaces[0]].solutionState = squareStates.unknown;
+          gridMetaData[dplaces[0]].partOfSolution.pop()
+          gridMetaData[dplaces[0]].parentSolution = null
+          callstackCount -= 1
+        }
         return false
       }
     }
@@ -311,7 +384,10 @@ export function valuesToStr(values){
   return result.join('')
 }
 
-
+let treesCreated
+let callstackCount
+let maxEliminationChainLength = -Infinity
+let currentEliminationCount
 /**
  *
  * @param {Object <string,string>} values
@@ -322,21 +398,47 @@ function search(values) {
   }
 
   if (Object.values(values).every(value => value.length === 1)) {
+    console.log('solution found')
     return values
   }
 
   const [_, nextTry] = findMinSquare(values)
-
-
-  return values[nextTry].split('').reduce((answer, d) => {
+  let treeDepth = treesCreated
+  let nodeParent = pointer
+  treesCreated += 1
+  gridMetaData[nextTry].solutionState = squareStates.exploring;
+  gridMetaData[nextTry].timesVisited += 1
+  gridMetaData[nextTry].partOfSolution.push(treesCreated - 1)
+  gridMetaData[nextTry].parentSolution = treesCreated - 1
+  const result =  values[nextTry].split('').reduce((answer, d) => {
     if (answer) return answer
+    callstackCount += 1
+    console.log('try', nextTry, d, ' at depth ', treeDepth)
+    const newNode = new Node(nextTry+'-'+d+'-'+treeDepth, nodeParent)
+    pointer = newNode
+    nodeParent.children.push(newNode)
+
     const solution = search(assign({...values}, nextTry, d))
+    callstackCount -= 1
     if (solution) {
+      console.log('worked', nextTry, d)
+      gridMetaData[nextTry].solutionState = squareStates.potentialAnswer;
       return solution
+    } else {
+      console.log('attempt failed:', nextTry, d, ' at depth ', treeDepth)
     }
   }, false)
+  if (!result) {
+    console.log('This sub tree has failed, rollback...', treeDepth)
+    gridMetaData[nextTry].partOfSolution.pop()
+    gridMetaData[nextTry].solutionState = squareStates.unknown;
+  }
+
+  return result
 }
 
 export function norvigSolve(grid) {
-  return search(parseGrid(grid))
+  treesCreated = 0
+  callstackCount = 0
+  return [valuesToStr(search(parseGrid(grid))), {treesCreated, callstackCount, gridMetaData, maxEliminationChainLength, tree: root }]
 }
