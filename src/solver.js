@@ -102,7 +102,6 @@ function possibleAnswers(row, col, grid) {
 
   return Array.from(result)
 }
-
 export function stringToGrid(sudokuString) {
   const values = sudokuString.split('')
   const result = Array(9)
@@ -170,6 +169,7 @@ class Node {
 let tree = new Node('root', null)
 let root = tree
 let pointer = root
+let steps = []
 
 // NORVIGS ALGO:
 const digits = "123456789";
@@ -186,7 +186,7 @@ function cross(A, B) {
   return result;
 }
 
-const squares = cross(rows, digits);
+export const squares = cross(rows, digits);
 
 const gridMetaData = squares.reduce((result, s) => {
   result[s] = {
@@ -194,9 +194,12 @@ const gridMetaData = squares.reduce((result, s) => {
     partOfSolution: [],
     solutionState: squareStates.unknown,
     parentSolution: null,
+    currentSolution: null,
   }
   return result
 }, {})
+
+const treeMetaData = {}
 
 const unitlist = [].concat(
   digits.split("").map((c) => cross(rows, c)),
@@ -260,7 +263,7 @@ export const parseGrid = (grid) => {
   tree = new Node('root', null)
   root = tree
   pointer = root
-
+  steps = []
   const values = squares.reduce((result, s) =>{
     result[s] = digits
     return result
@@ -283,6 +286,7 @@ export const parseGrid = (grid) => {
     }
   }
 
+  steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), ' Initialize grid'])
   doneParsing = true
 
   return values
@@ -326,12 +330,24 @@ function eliminate(values, square, digit) {
   }
 
   values[square] = values[square].replace(digit, '')
+  if (doneParsing) {
+    steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Remove '+digit+' from ' + square, 'Propogating'])
+  }
   if (values[square].length === 0) {
+    if (doneParsing) {
+      steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Invalid move detected, fail propogation.', 'Propogating'])
+    }
     return false
   } else if(values[square].length === 1)  {
     const digitToPropogate = values[square]
+    if (doneParsing) {
+      steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Single digit left, '+digit+' propogate changes... ', 'Propogating'])
+    }
     const propogation = Array.from(peers[square]).map(s => eliminate(values, s, digitToPropogate))
     if (!propogation.every(iteration => !!iteration)) {
+      if (doneParsing) {
+        steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Propogation failed, rollback', 'Propogating'])
+      }
       return false
     }
   }
@@ -340,28 +356,35 @@ function eliminate(values, square, digit) {
     const dplaces = u.filter(s => values[s].includes(digit))
 
     if (dplaces.length === 0) {
+      if (doneParsing) {
+        steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Invalid move detected, fail propogation.', 'Propogating'])
+      }
       return false
     } else if (dplaces.length === 1) {
       if (doneParsing) {
         callstackCount += 1
-        gridMetaData[dplaces[0]].solutionState = squareStates.potentialAnswer;
+        // gridMetaData[dplaces[0]].solutionState = squareStates.potentialAnswer;
         gridMetaData[dplaces[0]].timesVisited += 1
         gridMetaData[dplaces[0]].partOfSolution.push(treesCreated - 1)
         gridMetaData[dplaces[0]].parentSolution = treesCreated - 1
+        gridMetaData[dplaces[0]].parentSolution = gridMetaData.currentSolution
+        steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'potential answer found, apply change', 'Propogating'])
       }
       const attemped = assign(values, dplaces[0], digit)
       if (!attemped) {
         if (doneParsing) {
-          gridMetaData[dplaces[0]].solutionState = squareStates.unknown;
-          gridMetaData[dplaces[0]].partOfSolution.pop()
+          // gridMetaData[dplaces[0]].solutionState = squareStates.unknown;
           gridMetaData[dplaces[0]].parentSolution = null
           callstackCount -= 1
+          steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'change failed, rollback', 'Propogating'])
         }
         return false
       }
     }
   }
-
+  if (doneParsing) {
+    steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Changes propogated, continue search', 'Propogating'])
+  }
   return values
 }
 
@@ -382,6 +405,24 @@ export function valuesToStr(values){
     result[squares.indexOf(entry[0])] = entry[1]
   })
   return result.join('')
+}
+
+export function serializeTree(root) {
+  const stack = [root]
+  const edges = []
+  const nodes = []
+  while(stack.length) {
+    const current = stack.pop()
+    nodes.push({ id: current.val, label: current.val })
+    edges.push({ from: current.parent ? current.parent.val : null, to: current.val })
+    if (current.children.length) {
+      stack.push(...current.children)
+    }
+  }
+
+  return {
+    edges, nodes
+  }
 }
 
 let treesCreated
@@ -410,28 +451,43 @@ function search(values) {
   gridMetaData[nextTry].timesVisited += 1
   gridMetaData[nextTry].partOfSolution.push(treesCreated - 1)
   gridMetaData[nextTry].parentSolution = treesCreated - 1
+  gridMetaData[nextTry].isPicked = true
+  gridMetaData.currentSolution = treeDepth
+  let original = {...values}
   const result =  values[nextTry].split('').reduce((answer, d) => {
     if (answer) return answer
     callstackCount += 1
-    console.log('try', nextTry, d, ' at depth ', treeDepth)
-    const newNode = new Node(nextTry+'-'+d+'-'+treeDepth, nodeParent)
+    steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'square with minimal possibility is '+ nextTry  + ' Try' + d, 'Picking'])
+    const nodeId = treeDepth+'-'+nextTry+'-'+d
+    const newNode = new Node(nodeId, nodeParent)
+    gridMetaData.currentSolution = treeDepth
+    gridMetaData.lastAttempt = nextTry + '-' + d
+    gridMetaData.parentSquare = nextTry
+    treeMetaData[nodeId] = {
+      state: 'exploring'
+    }
     pointer = newNode
     nodeParent.children.push(newNode)
 
     const solution = search(assign({...values}, nextTry, d))
     callstackCount -= 1
     if (solution) {
-      console.log('worked', nextTry, d)
-      gridMetaData[nextTry].solutionState = squareStates.potentialAnswer;
+      steps.push([{...solution}, JSON.parse(JSON.stringify(gridMetaData)), 'Plugging in ' + d + ' at ' + nextTry + 'was a valid move, continue search.', 'Picking'])
       return solution
     } else {
-      console.log('attempt failed:', nextTry, d, ' at depth ', treeDepth)
+      // console.log('attempt failed:', nextTry, d, ' at depth ', treeDepth)
+      // gridMetaData[nextTry].solutionState = squareStates.exploring
+      treeMetaData[nodeId] = {
+        state: 'rejected'
+      }
+      steps.push([{...original}, JSON.parse(JSON.stringify(gridMetaData)), 'Plugging in ' + d + ' at ' + nextTry + ' was an invalid move, reject this tree', 'Picking'])
     }
   }, false)
+
   if (!result) {
-    console.log('This sub tree has failed, rollback...', treeDepth)
-    gridMetaData[nextTry].partOfSolution.pop()
     gridMetaData[nextTry].solutionState = squareStates.unknown;
+    gridMetaData[nextTry].isPicked = false
+    steps.push([{...original}, JSON.parse(JSON.stringify(gridMetaData)), 'No solutions in ' + nextTry + 'were valid, reject this tree', 'Picking'])
   }
 
   return result
@@ -440,5 +496,5 @@ function search(values) {
 export function norvigSolve(grid) {
   treesCreated = 0
   callstackCount = 0
-  return [valuesToStr(search(parseGrid(grid))), {treesCreated, callstackCount, gridMetaData, maxEliminationChainLength, tree: root }]
+  return [valuesToStr(search(parseGrid(grid))), {treesCreated, callstackCount, gridMetaData, maxEliminationChainLength, tree: root, steps }]
 }
