@@ -55,6 +55,14 @@
 
 .sudoku {
   border: 4px solid black;
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+}
+.sudoku-row {
+  display: flex;
+  width: fit-content;
+  align-content: center;
 }
 
 button.solve {
@@ -77,4 +85,14 @@ button.solve {
 
 .puzzle-definition {
   font-size: 1.5rem;
+}
+
+.is-picked {
+  animation: color-change 1s infinite;
+}
+
+@keyframes color-change {
+  0% { color: yellow; }
+  50% { color: black; }
+  100% { color: yellow; }
 }

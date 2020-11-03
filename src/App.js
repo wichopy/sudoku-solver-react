@@ -3,6 +3,140 @@ import './App.css';
 import { stringToGrid, norvigSolve } from './solver'
 import Graph from 'vis-react';
 
+function rowcolToValue(i, j) {
+  const row = {
+    0: 'A',
+    1: 'B',
+    2: 'C',
+    3: 'D',
+    4: 'E',
+    5: 'F',
+    6: 'G',
+    7: 'H',
+    8: 'I',
+  }
+
+  const col = {
+    0: '1',
+    1: '2',
+    2: '3',
+    3: '4',
+    4: '5',
+    5: '6',
+    6: '7',
+    7: '8',
+    8: '9',
+  }
+
+  return `${row[i]}${col[j]}`
+}
+
+function heatMapColorforValue(value){
+  var h = (1.0 - value) * 240
+  return "hsl(" + h + ", 100%, 50%)";
+}
+
+function Replay({ steps, max }) {
+  const [index, setIndex] = React.useState(0)
+  const [playing, setPlay] = React.useState(false)
+  const [showPropogations, setShowPropogations] = React.useState(false)
+  const [speed, setSpeed] = React.useState(16)
+  const [values, gridMetaData, msg, type, tree] = steps[index]
+  const timeout = React.useRef(null)
+  React.useEffect(() => {
+    if (index === steps.length - 1) {
+      clearTimeout(timeout.current)
+      setPlay(false)
+    }
+    if (playing) {
+      timeout.current = setTimeout(() => {
+        let nextIndex = index+1
+        if (!showPropogations) {
+          while (steps[nextIndex][3] === 'Propogating') {
+            nextIndex += 1
+          }
+        }
+        setIndex(nextIndex)
+
+        timeout.current=setTimeout(() => {
+          let nextIndex = index+1
+          if (!showPropogations) {
+            while (steps[nextIndex][3] === 'Propogating') {
+              nextIndex += 1
+            }
+          }
+          setIndex(nextIndex)
+        }, speed)
+      }, speed)
+    } else {
+      clearTimeout(timeout.current)
+    }
+  }, [index, playing])
+
+  function getNextIndex() {
+    let nextIndex = index+1
+    if (!showPropogations) {
+      while (steps[nextIndex][3] === 'Propogating') {
+        nextIndex += 1
+      }
+    }
+
+    return nextIndex
+  }
+
+  function getPrevIndex() {
+    let nextIndex = index-1
+    if (!showPropogations) {
+      while (steps[nextIndex][3] === 'Propogating') {
+        nextIndex -= 1
+      }
+    }
+
+    return nextIndex
+  }
+
+  return <div>
+    Current Solution: {gridMetaData.currentSolution} + {gridMetaData.lastAttempt}
+    <div className="sudoku">
+      {Array(9).fill(Array(9).fill('')).map((row, i) => <div className="sudoku-row">
+      {row.map(
+        (col, j) => {
+          // values[rowcolToValue(i,j)].length > 1 ||
+          return <GridCell key={i+":"+j} isPicked={gridMetaData[rowcolToValue(i,j)].isPicked} row={i} col={j} value={!values[rowcolToValue(i,j)] ? '.' : values[rowcolToValue(i,j)]}styles={{
+            backgroundColor: (() => {
+              if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return '#263238'
+              if (gridMetaData[rowcolToValue(i,j)].solutionState === 'exploring') return heatMapColorforValue(gridMetaData[rowcolToValue(i,j)].parentSolution / max)
+              if (gridMetaData[rowcolToValue(i,j)].solutionState === 'potentialAnswer') return '#c8e6c9'
+            })(),
+            color: (() => {
+              if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return 'white'
+              if (gridMetaData[rowcolToValue(i,j)].isPicked) return 'yellow'
+              return 'initial'
+            })(),
+          }}/>
+        }
+      )}
+    </div>)}
+      <p>
+        {msg}
+      </p>
+      <button disable={index === 0} onClick={() => setIndex(getPrevIndex())}>back</button>
+      <button disable={index === steps.length - 1} onClick={() => setIndex(getNextIndex())}>next</button>
+      <button onClick={() => setPlay(!playing)}>{!playing ? 'Play': 'Pause'}</button>
+      <button onClick={() => setIndex(0)}>{'Back to start'}</button>
+      <button onClick={() => setIndex(steps.length - 1)}>{'To end'}</button>
+      <label>
+        Show Propogations
+        <input type="checkbox" checked={showPropogations} onChange={() => setShowPropogations(!showPropogations)}/>
+      </label>
+      <label>
+        Set interval
+        <input type="number" value={speed} onChange={(ev) => setSpeed(ev.target.value)} />
+      </label>
+    </div>
+  </div>
+}
+
 const sudokuRegex = /^[1-9.]*$/
 
 const defaultState = {
@@ -66,18 +200,52 @@ const reducer = (state, action) => {
   }
 }
 
-function GridCell({value, row, col}) {
+function GridCell({value, row, col, styles, isPicked }) {
   return <div style={{
     display: 'inline-block',
     width: '2rem',
     height: '2rem',
     textAlign: 'center',
-    lineHeight: '2rem',
+    // lineHeight: '2rem',
     border: '1px solid black',
     borderRight: (col === 2 || col === 5) && '2px solid black',
     borderBottom: (row === 2 || row === 5) && '2px solid black',
-    color: value === '.' ? 'transparent' : 'initial'
-  }}>{value}</div>
+    color: value === '.' ? 'transparent' : 'initial',
+    ...styles,
+  }} className={isPicked ? 'is-picked' : ''}>
+    {value.length === 1 ? <div
+      style={{
+        top: '50%',
+        left: '50%'
+      }}
+    >
+        {value}
+      </div> : (
+      <div
+        style={{ position: 'relative', height: '100%', 'fontSize': '10px'}}
+      >
+        {value.split('').map((value, i) => {
+          return <div
+          style={{
+            position: 'absolute',
+            top: (() => {
+              if (value < '4') return '25%'
+              if (value < '7') return '50%'
+              return '75%'
+            })(),
+            left: (() => {
+              if (value === '1' || value === '4' || value === '7') return '25%'
+              if (value === '2' || value === '5' || value === '8') return '50%'
+              return '75%'
+            })()
+          }}
+          >
+            {value}
+          </div>
+        })}
+      </div>
+    )}
+  </div>
 }
 
 function Statistics({
@@ -163,7 +331,6 @@ function App() {
     })
     // Outsource computation to background thread.
     const [solution, stats] = norvigSolve(sudokuStr)
-
     const end = Date.now()
     const stack = [stats.tree]
     const edges = []
@@ -257,14 +424,11 @@ function App() {
           callStackCount={stats.callstackCount}
           treesCreated={stats.treesCreated}
         />,
+        <Replay steps={stats.steps} max={stats.treesCreated}/>,
         <Graph
-          styles={{
-            wdith: 1600,
-            height: 1000,
-          }}
           graph={{
-            nodes,
-            edges,
+            nodes: nodes,
+            edges: edges,
           }}
           options={{
             layout: {
