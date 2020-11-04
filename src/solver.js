@@ -302,18 +302,22 @@ function assign(values, square, digit) {
   callstackCount += 1
   const otherValues = values[square].replace(digit, '')
 
-  const propogation = otherValues.split('').map(d2 => {
+  for (let d2 of otherValues.split('')) {
     currentEliminationCount = 0
     const result = eliminate(values, square, d2)
     maxEliminationChainLength = Math.max(maxEliminationChainLength, currentEliminationCount)
-    return result
-  })
-
-  if (propogation.every(iteration => !!iteration)) {
-    return values
+    if (!result) {
+      if (doneParsing) {
+        steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Assigning ' + digit + ' to ' + square + ' failed... bubble up error','Propogating'])
+      }
+      return false
+    }
   }
 
-  return false
+  if (doneParsing) {
+    steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Assigning ' + digit + ' to ' + square + ' worked!','Propogating'])
+  }
+  return values
 }
 
 /**
@@ -343,12 +347,16 @@ function eliminate(values, square, digit) {
     if (doneParsing) {
       steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Single digit left, '+digit+' propogate changes... ', 'Propogating'])
     }
-    const propogation = Array.from(peers[square]).map(s => eliminate(values, s, digitToPropogate))
-    if (!propogation.every(iteration => !!iteration)) {
-      if (doneParsing) {
-        steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Propogation failed, rollback', 'Propogating'])
+
+    for (let s of Array.from(peers[square])) {
+      const result = eliminate(values, s, digitToPropogate)
+
+      if (!result) {
+        if (doneParsing) {
+          steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Propogation failed, bubble up failure...', 'Propogating'])
+        }
+        return false
       }
-      return false
     }
   }
 
