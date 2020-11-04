@@ -1,7 +1,9 @@
 import React from 'react';
 import './App.css';
 import { stringToGrid, norvigSolve } from './solver'
+// Consider react-sigma for graph https://www.npmjs.com/package/react-sigma#usage
 import Graph from 'vis-react';
+import {Sigma, RandomizeNodePositions, RelativeSize,  EdgeShapes, ForceAtlas2} from 'react-sigma';
 
 function rowcolToValue(i, j) {
   const row = {
@@ -43,6 +45,7 @@ function Replay({ steps, max }) {
   const [speed, setSpeed] = React.useState(16)
   const [values, gridMetaData, msg, type, tree] = steps[index]
   const timeout = React.useRef(null)
+
   React.useEffect(() => {
     if (index === steps.length - 1) {
       clearTimeout(timeout.current)
@@ -95,28 +98,32 @@ function Replay({ steps, max }) {
     return nextIndex
   }
 
-  return <div>
+  return <>
+    <h3>Replay</h3>
     Current Solution: {gridMetaData.currentSolution} + {gridMetaData.lastAttempt}
     <div className="sudoku">
       {Array(9).fill(Array(9).fill('')).map((row, i) => <div className="sudoku-row">
-      {row.map(
-        (col, j) => {
-          // values[rowcolToValue(i,j)].length > 1 ||
-          return <GridCell key={i+":"+j} isPicked={gridMetaData[rowcolToValue(i,j)].isPicked} row={i} col={j} value={!values[rowcolToValue(i,j)] ? '.' : values[rowcolToValue(i,j)]}styles={{
-            backgroundColor: (() => {
-              if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return '#263238'
-              if (gridMetaData[rowcolToValue(i,j)].solutionState === 'exploring') return heatMapColorforValue(gridMetaData[rowcolToValue(i,j)].parentSolution / max)
-              if (gridMetaData[rowcolToValue(i,j)].solutionState === 'potentialAnswer') return '#c8e6c9'
-            })(),
-            color: (() => {
-              if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return 'white'
-              if (gridMetaData[rowcolToValue(i,j)].isPicked) return 'yellow'
-              return 'initial'
-            })(),
-          }}/>
-        }
-      )}
-    </div>)}
+        {row.map(
+          (col, j) => {
+            // values[rowcolToValue(i,j)].length > 1 ||
+            return <GridCell key={i+":"+j} isPicked={gridMetaData[rowcolToValue(i,j)].isPicked} row={i} col={j} value={!values[rowcolToValue(i,j)] ? '.' : values[rowcolToValue(i,j)]}styles={{
+              backgroundColor: (() => {
+                if (gridMetaData.squareInFocus === rowcolToValue(i,j)) return 'yellow'
+                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return '#263238'
+                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'exploring') return heatMapColorforValue(gridMetaData[rowcolToValue(i,j)].parentSolution / max)
+                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'potentialAnswer') return '#c8e6c9'
+              })(),
+              color: (() => {
+                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return 'white'
+                if (gridMetaData[rowcolToValue(i,j)].isPicked) return 'yellow'
+                return 'initial'
+              })(),
+            }}/>
+          }
+        )}
+      </div>)}
+    </div>
+    <div>
       <p>
         {msg}
       </p>
@@ -134,7 +141,7 @@ function Replay({ steps, max }) {
         <input type="number" value={speed} onChange={(ev) => setSpeed(ev.target.value)} />
       </label>
     </div>
-  </div>
+  </>
 }
 
 const sudokuRegex = /^[1-9.]*$/
@@ -194,6 +201,7 @@ const reducer = (state, action) => {
         stats: action.payload.stats,
         edges: action.payload.edges,
         nodes: action.payload.nodes,
+        sigmaEdges: action.payload.sigmaEdges,
       }
     default:
       return state;
@@ -229,14 +237,14 @@ function GridCell({value, row, col, styles, isPicked }) {
           style={{
             position: 'absolute',
             top: (() => {
-              if (value < '4') return '25%'
-              if (value < '7') return '50%'
-              return '75%'
+              if (value < '4') return '0%'
+              if (value < '7') return '30%'
+              return '60%'
             })(),
             left: (() => {
-              if (value === '1' || value === '4' || value === '7') return '25%'
-              if (value === '2' || value === '5' || value === '8') return '50%'
-              return '75%'
+              if (value === '1' || value === '4' || value === '7') return '0%'
+              if (value === '2' || value === '5' || value === '8') return '30%'
+              return '60%'
             })()
           }}
           >
@@ -276,7 +284,7 @@ function App() {
     solved,
     inputError,
     stats,
-    nodes, edges
+    nodes, edges, sigmaEdges
   } = state;
 
   // Worker needs to be in a ref so its not lost on rerenders.
@@ -335,10 +343,19 @@ function App() {
     const stack = [stats.tree]
     const edges = []
     const nodes = []
+    const sigmaEdges = []
     while(stack.length) {
       const current = stack.pop()
       nodes.push({ id: current.val, label: current.val })
       edges.push({ from: current.parent ? current.parent.val : null, to: current.val })
+      if (current.parent) {
+        sigmaEdges.push({
+          id: (current.parent.val) + 'to'  + current.val,
+          source: current.parent.val,
+          target: current.val,
+          label: `${current.parent ? current.parent.val : '-' + 'to'  + current.val} -> ${current.val}`
+        })
+      }
       if (current.children.length) {
         stack.push(...current.children)
       }
@@ -353,6 +370,7 @@ function App() {
           end,
           edges,
           nodes,
+          sigmaEdges
         }
       })
     }, 1000)
@@ -360,6 +378,7 @@ function App() {
 
     // workerRef.current.postMessage(sudokuStr)
   }
+  // let myGraph = {nodes:nodes, edges: sigmaEdges};
 
   return (
     <div className="App">
@@ -424,18 +443,38 @@ function App() {
           callStackCount={stats.callstackCount}
           treesCreated={stats.treesCreated}
         />,
-        <Replay steps={stats.steps} max={stats.treesCreated}/>,
-        <Graph
-          graph={{
-            nodes: nodes,
-            edges: edges,
-          }}
-          options={{
-            layout: {
-              hierarchical:true,
-            }
-          }}
-        />
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          alignContent: 'center',
+          width: '100%',
+          flexDirection: 'column',
+        }}>
+          <Replay steps={stats.steps} max={stats.treesCreated}/>,
+        </div>,
+        <div style={{ height: '800px', margin: '30px'}}>
+          <h3>Decision Tree</h3>
+          <Graph
+            graph={{
+              nodes: nodes,
+              edges: edges,
+            }}
+            options={{
+              layout: {
+                hierarchical:true,
+              }
+            }}
+          />,
+        </div>
+        // <div>
+        //   <Sigma graph={myGraph} settings={{ drawEdges: true, drawEdgeLabels: true }} >
+        //     <EdgeShapes default="curvedArrow"/>
+        //     <RandomizeNodePositions>
+        //       <RelativeSize initialSize={15} />
+        //       <ForceAtlas2 iterationsPerRender={1} timeout={10000}/>
+        //     </RandomizeNodePositions>
+        //   </Sigma>
+        // </div>
         ]
       }
     </div>
