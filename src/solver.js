@@ -191,14 +191,11 @@ function assign(values, square, digit) {
     maxEliminationChainLength = Math.max(maxEliminationChainLength, currentEliminationCount)
     if (!result) {
       if (doneParsing) {
-        steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Assigning ' + digit + ' to ' + square + ' failed... bubble up error','Propogating'])
+        gridMetaData.squareInFocus = square
+        steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Assigning ' + digit + ' to ' + square + ' failed... bubble up error','Propogating', 'failure'])
       }
       return false
     }
-  }
-
-  if (doneParsing) {
-    steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Assigning ' + digit + ' to ' + square + ' worked!','Propogating'])
   }
   return values
 }
@@ -226,14 +223,15 @@ function eliminate(values, square, digit) {
   }
   if (values[square].length === 0) {
     if (doneParsing) {
-      steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Invalid elimination, bubble up failure....', 'Propogating'])
+      gridMetaData.squareInFocus = square
+      steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Invalid elimination, no values left, bubble up failure....', 'Propogating', 'failure'])
       gridMetaData.failedSnapshots.push([{...values}, square, treesCreated])
     }
     return false
   } else if(values[square].length === 1)  {
     const digitToPropogate = values[square]
     if (doneParsing) {
-      steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Single digit left, '+digit+ ' inside of ' + square + ' eliminate it from peers by propogating the change.', 'Propogating'])
+      steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Single digit left, '+values[square]+ ' inside of ' + square + ' eliminate it from peers by propogating the change.', 'Propogating'])
     }
 
     for (let s of Array.from(peers[square])) {
@@ -242,7 +240,7 @@ function eliminate(values, square, digit) {
 
       if (!result) {
         if (doneParsing) {
-          steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Propogation failed, bubble up failure...', 'Propogating'])
+          // steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Propogation failed, bubble up failure...', 'Propogating', 'failure'])
         }
         return false
       }
@@ -254,8 +252,7 @@ function eliminate(values, square, digit) {
 
     if (dplaces.length === 0) {
       if (doneParsing) {
-        // gridMetaData.squareInFocus = square
-        steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'No squares in units for '+ square+' have ' + digit + ' Bubble up error', 'Propogating'])
+        // steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'No squares in units for '+ square+' have ' + digit + ' Bubble up error', 'Propogating', 'failure'])
         gridMetaData.failedSnapshots.push([{...values}, square, treesCreated])
       }
       return false
@@ -276,14 +273,11 @@ function eliminate(values, square, digit) {
           gridMetaData.squareInFocus = dplaces[0]
           gridMetaData[dplaces[0]].parentSolution = null
           callstackCount -= 1
-          steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'change failed, rollback', 'Propogating'])
+          // steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'change failed, rollback', 'Propogating', 'failure'])
         }
         return false
       }
     }
-  }
-  if (doneParsing) {
-    steps.push([{...values}, JSON.parse(JSON.stringify(gridMetaData)), 'Eliminated '+digit +' from ' + square+', continue search', 'Propogating'])
   }
   return values
 }
@@ -385,7 +379,7 @@ function search(values) {
       treeMetaData[nodeId] = {
         state: 'rejected'
       }
-      steps.push([{...original}, JSON.parse(JSON.stringify(gridMetaData)), 'Plugging in ' + d + ' at ' + nextTry + ' created an invalid move somewhere in its children, reject this node and try other digits for square' + nextTry, 'Picking'])
+      steps.push([{...original}, JSON.parse(JSON.stringify(gridMetaData)), 'Plugging in ' + d + ' at ' + nextTry + ' created an invalid move somewhere in its children, reject this node and try other digits for square' + nextTry, 'Picking', 'failure'])
     }
 
     // defaults to returning false.
@@ -394,7 +388,13 @@ function search(values) {
   if (!result) {
     gridMetaData[nextTry].solutionState = squareStates.unknown;
     gridMetaData[nextTry].isPicked = false
-    steps.push([{...original}, JSON.parse(JSON.stringify(gridMetaData)), 'No solutions in ' + nextTry + 'were valid, return to parent node of ' + nextTry + ' ', + nodeParent.val, 'Picking'])
+    steps.push([
+      {...original},
+      JSON.parse(JSON.stringify(gridMetaData)),
+      'No solutions in ' + nextTry + 'were valid, return to parent node of ' + nextTry + ' ', + nodeParent.val,
+      'Picking',
+      'failure'
+    ])
   }
 
   return result

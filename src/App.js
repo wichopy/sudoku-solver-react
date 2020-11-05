@@ -42,8 +42,9 @@ function Replay({ steps, max }) {
   const [index, setIndex] = React.useState(0)
   const [playing, setPlay] = React.useState(false)
   const [showPropogations, setShowPropogations] = React.useState(false)
+  const [stopOnFailures, setStopOnFailures] = React.useState(false)
   const [speed, setSpeed] = React.useState(16)
-  const [values, gridMetaData, msg, type, tree] = steps[index]
+  const [values, gridMetaData, msg, type, status] = steps[index]
   const timeout = React.useRef(null)
 
   React.useEffect(() => {
@@ -51,6 +52,12 @@ function Replay({ steps, max }) {
       clearTimeout(timeout.current)
       setPlay(false)
     }
+
+    if (stopOnFailures && status === 'failure') {
+      clearTimeout(timeout.current)
+      setPlay(false)
+    }
+
     if (playing) {
       timeout.current = setTimeout(() => {
         let nextIndex = index+1
@@ -124,22 +131,36 @@ function Replay({ steps, max }) {
       </div>)}
     </div>
     <div>
-      <p>
+      <p style={{ height: '50px'}}>
         {msg}
       </p>
-      <button disable={index === 0} onClick={() => setIndex(getPrevIndex())}>back</button>
-      <button disable={index === steps.length - 1} onClick={() => setIndex(getNextIndex())}>next</button>
-      <button onClick={() => setPlay(!playing)}>{!playing ? 'Play': 'Pause'}</button>
-      <button onClick={() => setIndex(0)}>{'Back to start'}</button>
-      <button onClick={() => setIndex(steps.length - 1)}>{'To end'}</button>
-      <label>
-        Show Propogations
-        <input type="checkbox" checked={showPropogations} onChange={() => setShowPropogations(!showPropogations)}/>
-      </label>
-      <label>
-        Set interval
-        <input type="number" value={speed} onChange={(ev) => setSpeed(ev.target.value)} />
-      </label>
+      <div>
+        <button onClick={() => setIndex(0)}>{'Back to start'}</button>
+        <button disabled={index === 0} onClick={() => setIndex(getPrevIndex())}>back</button>
+        <button disabled={index === steps.length - 1} onClick={() => setIndex(getNextIndex())}>next</button>
+        <button onClick={() => setIndex(steps.length - 1)}>{'To end'}</button>
+      </div>
+      <div>
+        <button onClick={() => setPlay(!playing)}>{!playing ? 'Play': 'Pause'}</button>
+      </div>
+      <div>
+        <label>
+          Show Propogations
+          <input type="checkbox" checked={showPropogations} onChange={() => setShowPropogations(!showPropogations)}/>
+        </label>
+      </div>
+      <div>
+        <label>
+          Stop on failures
+          <input type="checkbox" checked={stopOnFailures} onChange={() => setStopOnFailures(!stopOnFailures)}/>
+        </label>
+      </div>
+      <div>
+        <label>
+          Set interval
+          <input type="number" value={speed} onChange={(ev) => setSpeed(ev.target.value)} />
+        </label>
+      </div>
     </div>
   </>
 }
