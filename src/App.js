@@ -4,6 +4,7 @@ import { stringToGrid, norvigSolve } from './solver'
 // Consider react-sigma for graph https://www.npmjs.com/package/react-sigma#usage
 import Graph from 'vis-react';
 import {Sigma, RandomizeNodePositions, RelativeSize,  EdgeShapes, ForceAtlas2} from 'react-sigma';
+import GridCell from './GridCell';
 
 function rowcolToValue(i, j) {
   const row = {
@@ -44,7 +45,7 @@ function Replay({ steps, max }) {
   const [showPropogations, setShowPropogations] = React.useState(false)
   const [stopOnFailures, setStopOnFailures] = React.useState(false)
   const [speed, setSpeed] = React.useState(16)
-  const [values, gridMetaData, msg, type, status] = steps[index]
+  const [values, gridMetaData, msg, type, status, callStackCount] = steps[index]
   const timeout = React.useRef(null)
 
   React.useEffect(() => {
@@ -105,6 +106,15 @@ function Replay({ steps, max }) {
     return nextIndex
   }
 
+  function nextAttempt() {
+    let nextIndex = index+1
+    while (steps[nextIndex][3] === 'Propogating') {
+      nextIndex += 1
+    }
+
+    return nextIndex
+  }
+
   return <>
     <h3>Replay</h3>
     Current Solution: {gridMetaData.currentSolution} + {gridMetaData.lastAttempt}
@@ -116,8 +126,9 @@ function Replay({ steps, max }) {
             return <GridCell key={i+":"+j} isPicked={gridMetaData[rowcolToValue(i,j)].isPicked} row={i} col={j} value={!values[rowcolToValue(i,j)] ? '.' : values[rowcolToValue(i,j)]}styles={{
               backgroundColor: (() => {
                 if (gridMetaData.squareInFocus === rowcolToValue(i,j)) return 'yellow'
+                if (gridMetaData.dplacesCheck && gridMetaData.dplacesCheck.includes(rowcolToValue(i,j))) return 'purple'
                 if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return '#263238'
-                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'exploring') return heatMapColorforValue(gridMetaData[rowcolToValue(i,j)].parentSolution / max)
+                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'exploring') return 'aqua' //return heatMapColorforValue(gridMetaData[rowcolToValue(i,j)].parentSolution / max)
                 if (gridMetaData[rowcolToValue(i,j)].solutionState === 'potentialAnswer') return '#c8e6c9'
               })(),
               color: (() => {
@@ -134,6 +145,7 @@ function Replay({ steps, max }) {
       <p style={{ height: '50px'}}>
         {msg}
       </p>
+      <p>Callstacks:        {callStackCount}</p>
       <div>
         <button onClick={() => setIndex(0)}>{'Back to start'}</button>
         <button disabled={index === 0} onClick={() => setIndex(getPrevIndex())}>back</button>
@@ -142,6 +154,9 @@ function Replay({ steps, max }) {
       </div>
       <div>
         <button onClick={() => setPlay(!playing)}>{!playing ? 'Play': 'Pause'}</button>
+      </div>
+      <div>
+        <button onClick={() => setIndex(nextAttempt())}>Go to next attempt</button>
       </div>
       <div>
         <label>
@@ -176,7 +191,7 @@ benchmark: {
   solving: false,
   solved: false,
   inputError: '',
-  stats: {},
+  stats: null,
   edges: [],
   nodes: [],
 }
@@ -185,6 +200,7 @@ const NEW_SUDOKU = 'NEW_SUDOKU'
 const PUZZLE_INPUT_ERROR = 'PUZZLE_INPUT_ERROR'
 const START_SOLVING = 'START_SOLVING'
 const FINISH_SOLVING = 'FINISH_SOLVING'
+const LOAD_REPLAY = 'LOAD_REPLAY'
 
 const reducer = (state, action) => {
   switch (action.type) {
@@ -219,62 +235,18 @@ const reducer = (state, action) => {
         },
         solving: false,
         solved: true,
+      }
+    case LOAD_REPLAY:
+      return {
+        ...state,
         stats: action.payload.stats,
         edges: action.payload.edges,
         nodes: action.payload.nodes,
-        sigmaEdges: action.payload.sigmaEdges,
+        // sigmaEdges: action.payload.sigmaEdges,
       }
     default:
       return state;
   }
-}
-
-function GridCell({value, row, col, styles, isPicked }) {
-  return <div style={{
-    display: 'inline-block',
-    width: '2rem',
-    height: '2rem',
-    textAlign: 'center',
-    // lineHeight: '2rem',
-    border: '1px solid black',
-    borderRight: (col === 2 || col === 5) && '2px solid black',
-    borderBottom: (row === 2 || row === 5) && '2px solid black',
-    color: value === '.' ? 'transparent' : 'initial',
-    ...styles,
-  }} className={isPicked ? 'is-picked' : ''}>
-    {value.length === 1 ? <div
-      style={{
-        top: '50%',
-        left: '50%'
-      }}
-    >
-        {value}
-      </div> : (
-      <div
-        style={{ position: 'relative', height: '100%', 'fontSize': '10px'}}
-      >
-        {value.split('').map((value, i) => {
-          return <div
-          style={{
-            position: 'absolute',
-            top: (() => {
-              if (value < '4') return '0%'
-              if (value < '7') return '30%'
-              return '60%'
-            })(),
-            left: (() => {
-              if (value === '1' || value === '4' || value === '7') return '0%'
-              if (value === '2' || value === '5' || value === '8') return '30%'
-              return '60%'
-            })()
-          }}
-          >
-            {value}
-          </div>
-        })}
-      </div>
-    )}
-  </div>
 }
 
 function Statistics({
@@ -319,11 +291,12 @@ function App() {
       const [solution, stats] = e.data
 
       dispatch({
-        type: FINISH_SOLVING,
+        type: LOAD_REPLAY,
         payload: {
-          solution: stringToGrid(solution),
           stats,
-          end: new Date().getTime(),
+          edges: stats.tree.edges,
+          nodes: stats.tree.nodes,
+          // sigmaEdges
         }
       })
     }
@@ -358,49 +331,22 @@ function App() {
       type: START_SOLVING,
       payload: { start: new Date().getTime()}
     })
+
     // Outsource computation to background thread.
-    const [solution, stats] = norvigSolve(sudokuStr)
-    const end = Date.now()
-    const stack = [stats.tree]
-    const edges = []
-    const nodes = []
-    const sigmaEdges = []
-    while(stack.length) {
-      const current = stack.pop()
-      nodes.push({ id: current.val, label: current.val })
-      edges.push({ from: current.parent ? current.parent.val : null, to: current.val })
-      if (current.parent) {
-        sigmaEdges.push({
-          id: (current.parent.val) + 'to'  + current.val,
-          source: current.parent.val,
-          target: current.val,
-          label: `${current.parent ? current.parent.val : '-' + 'to'  + current.val} -> ${current.val}`
-        })
+    workerRef.current.postMessage(sudokuStr)
+
+    const solution = norvigSolve(sudokuStr)
+
+    dispatch({
+      type: FINISH_SOLVING,
+      payload: {
+        solution: stringToGrid(solution),
+        end: new Date().getTime(),
       }
-      if (current.children.length) {
-        stack.push(...current.children)
-      }
-    }
+    })
 
-    setTimeout(() => {
-      dispatch({
-        type: FINISH_SOLVING,
-        payload: {
-          solution: stringToGrid(solution),
-          stats,
-          end,
-          edges,
-          nodes,
-          sigmaEdges
-        }
-      })
-    }, 1000)
-
-
-    // workerRef.current.postMessage(sudokuStr)
   }
   // let myGraph = {nodes:nodes, edges: sigmaEdges};
-
   return (
     <div className="App">
       <h1>Sudoku Solver</h1>
@@ -436,7 +382,7 @@ function App() {
         </div>
 
         <div className="item">
-          <button disabled={solving} data-qa="solve-button" className="solve" onClick={handleSolveClick}>Solve</button>
+          <button disabled={solving || solved} data-qa="solve-button" className="solve" onClick={handleSolveClick}>Solve</button>
           <p style={{
             visibility: solving ? 'visible' : 'hidden'
           }}>
@@ -458,7 +404,7 @@ function App() {
       </div>
 
       {
-        solved && [<Statistics
+        solved && stats && [<Statistics
           start={benchmark.start}
           end={benchmark.end}
           callStackCount={stats.callstackCount}
