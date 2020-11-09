@@ -45,7 +45,8 @@ function Replay({ steps, max }) {
   const [showPropogations, setShowPropogations] = React.useState(false)
   const [stopOnFailures, setStopOnFailures] = React.useState(false)
   const [speed, setSpeed] = React.useState(16)
-  const [values, gridMetaData, msg, type, status, callStackCount] = steps[index]
+  const [stackPosition, setStackPosition] = React.useState(0)
+  const [values, gridMetaData, msg, type, status, callStackCount, stackVisual] = steps[index]
   const timeout = React.useRef(null)
 
   React.useEffect(() => {
@@ -84,6 +85,7 @@ function Replay({ steps, max }) {
     }
   }, [index, playing])
 
+
   function getNextIndex() {
     let nextIndex = index+1
     if (!showPropogations) {
@@ -117,28 +119,47 @@ function Replay({ steps, max }) {
 
   return <>
     <h3>Replay</h3>
-    Current Solution: {gridMetaData.currentSolution} + {gridMetaData.lastAttempt}
+    <button disabled={stackVisual.length === stackPosition} onClick={() => setStackPosition(stackPosition + 1)}>
+      PrevStack
+    </button>
+    <button disabled={stackPosition === 0} onClick={() => setStackPosition(stackPosition - 1)}>
+      NextStack
+    </button>
+    {
+      stackPosition !== 0 ? stackVisual.slice(-1 * stackPosition)[0][2] : `Current Solution: ${gridMetaData.currentSolution}  - ${gridMetaData.lastAttempt}`
+    }
     <div className="sudoku">
       {Array(9).fill(Array(9).fill('')).map((row, i) => <div className="sudoku-row">
-        {row.map(
+        {stackPosition === 0 ? row.map(
           (col, j) => {
             // values[rowcolToValue(i,j)].length > 1 ||
-            return <GridCell key={i+":"+j} isPicked={gridMetaData[rowcolToValue(i,j)].isPicked} row={i} col={j} value={!values[rowcolToValue(i,j)] ? '.' : values[rowcolToValue(i,j)]}styles={{
-              backgroundColor: (() => {
-                if (gridMetaData.squareInFocus === rowcolToValue(i,j)) return 'yellow'
-                if (gridMetaData.dplacesCheck && gridMetaData.dplacesCheck.includes(rowcolToValue(i,j))) return 'purple'
-                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return '#263238'
-                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'exploring') return 'aqua' //return heatMapColorforValue(gridMetaData[rowcolToValue(i,j)].parentSolution / max)
-                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'potentialAnswer') return '#c8e6c9'
-              })(),
-              color: (() => {
-                if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return 'white'
-                if (gridMetaData[rowcolToValue(i,j)].isPicked) return 'yellow'
-                return 'initial'
-              })(),
-            }}/>
+            return <GridCell key={i+":"+j} isPicked={gridMetaData[rowcolToValue(i,j)].isPicked} row={i} col={j} value={!values[rowcolToValue(i,j)] ? '.' : values[rowcolToValue(i,j)]}
+              styles={{
+                backgroundColor: (() => {
+                  if (gridMetaData.squareInFocus === rowcolToValue(i,j)) return 'yellow'
+                  if (gridMetaData.dplacesCheck && gridMetaData.dplacesCheck.includes(rowcolToValue(i,j))) return 'purple'
+                  if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return '#263238'
+                  if (gridMetaData[rowcolToValue(i,j)].solutionState === 'exploring') return 'aqua' //return heatMapColorforValue(gridMetaData[rowcolToValue(i,j)].parentSolution / max)
+                  if (gridMetaData[rowcolToValue(i,j)].solutionState === 'potentialAnswer') return '#c8e6c9'
+                })(),
+                color: (() => {
+                  if (gridMetaData[rowcolToValue(i,j)].solutionState === 'given') return 'white'
+                  if (gridMetaData[rowcolToValue(i,j)].isPicked) return 'yellow'
+                  return 'initial'
+                })(),
+              }}
+            />
           }
-        )}
+        ) : row.map((col, j) => {
+          // values[rowcolToValue(i,j)].length > 1 ||
+          return <GridCell
+            styles={{
+              backgroundColor: (() => {
+                if (stackVisual.slice(-1 * stackPosition)[0][1].includes(rowcolToValue(i,j))) return 'aqua' //return heatMapColorforValue(gridMetaData[rowcolToValue(i,j)].parentSolution / max)
+              })(),
+            }}
+            key={i+":"+j} row={i} col={j} value={!stackVisual.slice(-1 * stackPosition)[0][0][rowcolToValue(i,j)] ? '.' : stackVisual.slice(-1 * stackPosition)[0][0][rowcolToValue(i,j)]} />
+        })}
       </div>)}
     </div>
     <div>
@@ -279,7 +300,7 @@ function App() {
     stats,
     nodes, edges, sigmaEdges
   } = state;
-
+  const [makingReplay, setMakingReplay] = React.useState(false)
   // Worker needs to be in a ref so its not lost on rerenders.
   const workerRef = React.useRef()
 
@@ -289,7 +310,7 @@ function App() {
     // Dispatch action when worker is done its job.
     workerRef.current.onmessage = e => {
       const [solution, stats] = e.data
-
+      setMakingReplay(false)
       dispatch({
         type: LOAD_REPLAY,
         payload: {
@@ -336,7 +357,7 @@ function App() {
     workerRef.current.postMessage(sudokuStr)
 
     const solution = norvigSolve(sudokuStr)
-
+    setMakingReplay(true)
     dispatch({
       type: FINISH_SOLVING,
       payload: {
@@ -387,6 +408,12 @@ function App() {
             visibility: solving ? 'visible' : 'hidden'
           }}>
             Solving.......
+          </p>
+
+          <p style={{
+            visibility: makingReplay ? 'visible' : 'hidden'
+          }}>
+            Making replay...
           </p>
         </div>
 

@@ -103,6 +103,7 @@ function captureStep(values, message, type, failure) {
     type,
     failure,
     self.callstackCount,
+    [...self.stackVisual],
   ])
 }
 class Node {
@@ -133,6 +134,7 @@ self.tree = new Node('root', null)
 self.root = self.tree
 self.pointer = self.root
 self.steps = []
+self.stackVisual = []
 
 // INITIALIZE
 const gridValues = (grid) => {
@@ -422,13 +424,18 @@ function search(values) {
     }
     self.pointer = newNode
     nodeParent.children.push(newNode)
-
+    self.stackVisual.push([
+      {...values},
+      self.stackVisual.reduce((result, curr) => {return result + curr[1] }, '') + nextTry,
+      'State when attempting '+ d + ' at ' +nextTry
+    ])
     const solution = search(assign({...values}, nextTry, d))
     if (solution) {
       self.gridMetaData.squareInFocus = nextTry
       captureStep(solution, 'Plugging in ' + d + ' at ' + nextTry + 'was a valid move, end search.', 'Picking')
       self.pointer.partOfSolution = true
       self.gridMetaData.squareInFocus = ''
+      self.stackVisual.pop()
       return solution
     } else {
       self.treeMetaData[nodeId] = {
@@ -440,6 +447,7 @@ function search(values) {
         'Picking',
         'failure'
       )
+      self.stackVisual.pop()
     }
 
     // defaults to returning false.
@@ -464,8 +472,9 @@ function search(values) {
 function norvigSolve(grid) {
   self.treesCreated = 0
   self.callstackCount = 0
-  const solution = search(parseGrid(grid))
-  console.log(solution, steps)
+  const parsed = parseGrid(grid)
+  const solution = search(parsed)
+
   self.gridMetaData.squareInFocus = ''
   captureStep(solution,'Ending algo.', 'Picking')
   return [valuesToStr(solution), {treesCreated: self.treesCreated, callstackCount: self.callstackCount, gridMetaData: self.gridMetaData, tree: serializeTree(self.root), steps: self.steps }]
