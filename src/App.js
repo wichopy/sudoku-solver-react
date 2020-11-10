@@ -3,7 +3,7 @@ import './App.css';
 import { stringToGrid, norvigSolve } from './solver'
 // Consider react-sigma for graph https://www.npmjs.com/package/react-sigma#usage
 import Graph from 'vis-react';
-import {Sigma, RandomizeNodePositions, RelativeSize,  EdgeShapes, ForceAtlas2} from 'react-sigma';
+// import {Sigma, RandomizeNodePositions, RelativeSize,  EdgeShapes, ForceAtlas2} from 'react-sigma';
 import GridCell from './GridCell';
 
 function rowcolToValue(i, j) {
@@ -394,7 +394,11 @@ function App() {
         <div className="item">
           <h3>Input</h3>
           <div className="sudoku">
-            {stringToGrid(sudokuStr).map((row, i) => <div>
+            {solved ? solvedGrid.map((row, i) => <div>
+              {row.map(
+                (col, j) => <GridCell key={i+":"+j} row={i} col={j} value={col} />
+              )}
+            </div>) : stringToGrid(sudokuStr).map((row, i) => <div>
               {row.map(
                 (col, j) => <GridCell key={i+":"+j} row={i} col={j} value={col} />
               )}
@@ -415,18 +419,6 @@ function App() {
           }}>
             Making replay...
           </p>
-        </div>
-
-        <div className="item">
-          <h3>Result</h3>
-          <div className="sudoku">
-            {solvedGrid.map((row, i) => <div>
-              {row.map(
-                (col, j) => <GridCell key={i+":"+j} row={i} col={j} value={col} />
-              )}
-            </div>)}
-
-          </div>
         </div>
       </div>
 

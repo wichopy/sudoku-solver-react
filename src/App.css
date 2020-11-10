@@ -44,6 +44,7 @@
 
 .solver-area {
   display: flex;
+  flex-direction: column;
   margin: auto;
   width: fit-content;
   align-items: center;
